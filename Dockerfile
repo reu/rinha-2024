@@ -3,6 +3,7 @@ FROM rust:1-slim-buster AS build
 RUN cargo new --bin app
 WORKDIR /app
 RUN cargo new --bin rinha-load-balancer
+RUN cargo new --bin rinha-load-balancer-tcp
 
 COPY Cargo.toml /app/
 COPY Cargo.lock /app/

@@ -19,6 +19,18 @@ services:
     ports:
       - "3000:3000"
 
+  # rinha-lb-tcp:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.lb-tcp
+  #   ports:
+  #     - "9999:9999"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.9"
+  #         memory: "100MB"
+
   rinha-lb:
     build:
       context: .
