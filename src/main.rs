@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
-    sync::Arc,
+    sync::Arc, env,
 };
 
 use axum::{
@@ -119,6 +119,11 @@ type AppState = Arc<HashMap<u8, RwLock<Account>>>;
 
 #[tokio::main]
 async fn main() {
+    let port = env::var("PORT")
+        .ok()
+        .and_then(|port| port.parse::<u16>().ok())
+        .unwrap_or(9999);
+
     let accounts = HashMap::<u8, RwLock<Account>>::from_iter([
         (1, RwLock::new(Account::with_limit(100_000))),
         (2, RwLock::new(Account::with_limit(80_000))),
@@ -132,7 +137,10 @@ async fn main() {
         .route("/clientes/:id/extrato", get(view_account))
         .with_state(Arc::new(accounts));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+        .await
+        .unwrap();
+
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -160,6 +168,8 @@ async fn view_account(
     Path(account_id): Path<u8>,
     State(accounts): State<AppState>,
 ) -> impl IntoResponse {
+    println!("Chegou request");
+
     match accounts.get(&account_id) {
         Some(account) => {
             let account = account.read().await;
