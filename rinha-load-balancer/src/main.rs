@@ -67,7 +67,9 @@ async fn main() {
 
     let addrs = ["api1:3000", "api2:3000"];
 
-    let client = Client::builder(TokioExecutor::new()).build_http::<Body>();
+    let client = Client::builder(TokioExecutor::new())
+        .http2_only(true)
+        .build_http::<Body>();
 
     #[allow(unused)]
     let round_robin = RoundRobin {
