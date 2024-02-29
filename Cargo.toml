@@ -1,3 +1,5 @@
+workspace = { members = ["rinha-load-balancer"] }
+
 [package]
 name = "rinha-2024"
 version = "0.1.0"
