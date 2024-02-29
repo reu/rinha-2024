@@ -4,16 +4,16 @@ RUN cargo new --bin app
 WORKDIR /app
 RUN cargo new --bin rinha-load-balancer
 
-COPY Cargo.toml /app/
+COPY rinha-load-balancer/Cargo.toml /app/
 COPY Cargo.lock /app/
 RUN cargo build --release
 
-COPY src /app/src
+COPY rinha-load-balancer/src /app/src
 RUN touch /app/src/main.rs
 RUN cargo build --release
 
 FROM debian:buster-slim
 
-COPY --from=build /app/target/release/rinha-2024 /app/rinha
+COPY --from=build /app/target/release/rinha-load-balancer /app/rinha
 
 CMD "/app/rinha"

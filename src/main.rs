@@ -168,8 +168,6 @@ async fn view_account(
     Path(account_id): Path<u8>,
     State(accounts): State<AppState>,
 ) -> impl IntoResponse {
-    println!("Chegou request");
-
     match accounts.get(&account_id) {
         Some(account) => {
             let account = account.read().await;
