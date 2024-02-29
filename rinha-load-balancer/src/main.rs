@@ -1,4 +1,5 @@
 use std::{
+    hash::{DefaultHasher, Hash, Hasher},
     str::FromStr,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -24,9 +25,40 @@ use tokio::net::TcpListener;
 
 #[derive(Clone)]
 struct AppState {
+    load_balancer: Arc<dyn LoadBalancer + Send + Sync>,
+    http_client: Client<HttpConnector, Body>,
+}
+
+struct RoundRobin {
     addrs: Vec<&'static str>,
     req_counter: Arc<AtomicUsize>,
-    http_client: Client<HttpConnector, Body>,
+}
+
+trait LoadBalancer {
+    fn next_server(&self, req: &Request) -> String;
+}
+
+impl LoadBalancer for RoundRobin {
+    fn next_server(&self, _req: &Request) -> String {
+        let count = self.req_counter.fetch_add(1, Ordering::Relaxed);
+        self.addrs[count % self.addrs.len()].to_string()
+    }
+}
+
+struct RinhaAccountBalancer {
+    addrs: Vec<&'static str>,
+}
+
+impl LoadBalancer for RinhaAccountBalancer {
+    fn next_server(&self, req: &Request) -> String {
+        let path = req.uri().path();
+        let hash = {
+            let mut hasher = DefaultHasher::new();
+            path.hash(&mut hasher);
+            hasher.finish() as usize
+        };
+        self.addrs[hash % self.addrs.len()].to_string()
+    }
 }
 
 #[tokio::main]
@@ -37,9 +69,19 @@ async fn main() {
 
     let client = Client::builder(TokioExecutor::new()).build_http::<Body>();
 
-    let app_state = AppState {
+    #[allow(unused)]
+    let round_robin = RoundRobin {
         addrs: addrs.to_vec(),
         req_counter: Arc::new(AtomicUsize::new(0)),
+    };
+
+    #[allow(unused)]
+    let fixed_load_balancer = RinhaAccountBalancer {
+        addrs: addrs.to_vec(),
+    };
+
+    let app_state = AppState {
+        load_balancer: Arc::new(round_robin),
         http_client: client,
     };
 
@@ -50,18 +92,17 @@ async fn main() {
 
 async fn proxy(
     State(AppState {
-        addrs,
-        req_counter,
+        load_balancer,
         http_client,
     }): State<AppState>,
     mut req: Request,
 ) -> impl IntoResponse {
-    let count = req_counter.fetch_add(1, Ordering::Relaxed);
+    let addr = load_balancer.next_server(&req);
 
     *req.uri_mut() = {
         let uri = req.uri();
         let mut parts = uri.clone().into_parts();
-        parts.authority = Authority::from_str(addrs[count % addrs.len()]).ok();
+        parts.authority = Authority::from_str(addr.as_str()).ok();
         parts.scheme = Some(Scheme::HTTP);
         Uri::from_parts(parts).unwrap()
     };
