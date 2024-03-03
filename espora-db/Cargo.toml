@@ -1,0 +1,8 @@
+[package]
+name = "espora-db"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitcode = { version = "0.5.1", features = ["serde"] }
+serde = { version = "1.0.196", features = ["derive"] }

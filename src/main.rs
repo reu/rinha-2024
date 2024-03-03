@@ -47,7 +47,6 @@ impl<T> Default for RingBuffer<T> {
     }
 }
 
-// NAO FACAM ISSO
 impl<T> RingBuffer<T> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self(VecDeque::with_capacity(capacity))

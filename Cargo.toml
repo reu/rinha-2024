@@ -1,4 +1,4 @@
-workspace = { members = ["rinha-load-balancer", "rinha-load-balancer-tcp"] }
+workspace = { members = [ "espora-db", "rinha-load-balancer", "rinha-load-balancer-tcp"] }
 
 [package]
 name = "rinha-2024"
