@@ -49,11 +49,11 @@ impl<T> Default for RingBuffer<T> {
 
 // NAO FACAM ISSO
 impl<T> RingBuffer<T> {
-    fn with_capacity(capacity: usize) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         Self(VecDeque::with_capacity(capacity))
     }
 
-    fn push(&mut self, item: T) {
+    pub fn push(&mut self, item: T) {
         if self.0.len() == self.0.capacity() {
             self.0.pop_back();
             self.0.push_front(item);
