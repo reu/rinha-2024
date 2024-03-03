@@ -50,7 +50,7 @@ impl<const ROW_SIZE: usize> Page<ROW_SIZE> {
         Ok(())
     }
 
-    pub fn rows(&self) -> impl Iterator<Item = &[u8]> + '_ {
+    pub fn rows(&self) -> impl Iterator<Item = &[u8]> {
         let mut cursor = 0;
         iter::from_fn(move || {
             let offset = cursor * ROW_SIZE;
