@@ -98,7 +98,8 @@ pub struct Db<T, const ROW_SIZE: usize = 64> {
 
 impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
     pub fn from_path(path: impl AsRef<Path>) -> io::Result<Self> {
-        let file = OpenOptions::new().write(true).create(true).open(&path)?;
+        let mut file = OpenOptions::new().write(true).create(true).open(&path)?;
+        file.seek(io::SeekFrom::End(0))?;
 
         // TODO: ler o arquivo e iniciar a página corretamente
         Ok(Self {
