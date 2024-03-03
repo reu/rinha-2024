@@ -44,7 +44,7 @@ impl<const ROW_SIZE: usize> Page<ROW_SIZE> {
         self.data.write(&size).map_err(DbError::Io)?;
         self.data.write(&serialized).map_err(DbError::Io)?;
         self.data
-            .write(&vec![0; ROW_SIZE - (serialized.len() + size.len())])
+            .write_all(&vec![0; ROW_SIZE - (serialized.len() + size.len())])
             .map_err(DbError::Io)?;
 
         Ok(())
@@ -113,9 +113,9 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
         self.current_page.insert(row);
 
         // TODO: fazer um único write
-        self.writer.write(self.current_page.as_ref());
+        self.writer.write_all(self.current_page.as_ref());
         self.writer
-            .write(&vec![0; PAGE_SIZE - self.current_page.len()]);
+            .write_all(&vec![0; PAGE_SIZE - self.current_page.len()]);
 
         if self.current_page.available_rows() == 0 {
             self.current_page = Page::new();
