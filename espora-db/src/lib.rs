@@ -126,7 +126,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
         Ok(())
     }
 
-    fn pages(&mut self) -> impl Iterator<Item = Page> + '_ {
+    fn pages(&mut self) -> impl Iterator<Item = Page<ROW_SIZE>> + '_ {
         let mut cursor = 0;
         iter::from_fn(move || {
             let offset = (cursor * PAGE_SIZE) as u64;
