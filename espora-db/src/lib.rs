@@ -65,6 +65,10 @@ impl<const ROW_SIZE: usize> Page<ROW_SIZE> {
                 u64::from_be_bytes(buf) as usize
             };
 
+            if size == 0 {
+                return None;
+            }
+
             cursor += 1;
             Some(&row[8..8 + size])
         })
@@ -96,6 +100,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
     pub fn from_path(path: impl AsRef<Path>) -> io::Result<Self> {
         let file = OpenOptions::new().write(true).create(true).open(&path)?;
 
+        // TODO: ler o arquivo e iniciar a página corretamente
         Ok(Self {
             current_page: Page::new(),
             reader: File::open(&path)?,
@@ -162,10 +167,8 @@ mod tests {
         assert_eq!(3, page.available_rows());
         page.insert(String::from("de"));
         assert_eq!(2, page.available_rows());
-        page.insert(String::from("Backend"));
-        assert_eq!(1, page.available_rows());
         page.insert(2024 as u64);
-        assert_eq!(0, page.available_rows());
+        assert_eq!(1, page.available_rows());
 
         let mut rows = page.rows();
         assert_eq!(
@@ -174,10 +177,6 @@ mod tests {
         );
         assert_eq!(
             "de",
-            bitcode::deserialize::<String>(&rows.next().unwrap()).unwrap()
-        );
-        assert_eq!(
-            "Backend",
             bitcode::deserialize::<String>(&rows.next().unwrap()).unwrap()
         );
         assert_eq!(

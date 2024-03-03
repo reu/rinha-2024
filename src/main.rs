@@ -1,6 +1,9 @@
 use std::{
     collections::{HashMap, VecDeque},
-    sync::Arc, env,
+    env,
+    error::Error,
+    path::Path as FilePath,
+    sync::Arc,
 };
 
 use axum::{
@@ -10,16 +13,17 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use espora_db::Db;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::sync::RwLock;
 
-#[derive(Default, Clone)]
 struct Account {
     balance: i64,
     limit: i64,
     transactions: RingBuffer<Transaction>,
+    db: Db<(i64, Transaction), 1024>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -62,31 +66,57 @@ impl<T> RingBuffer<T> {
     }
 }
 
-impl Account {
-    pub fn with_limit(limit: i64) -> Self {
-        Account {
-            limit,
-            ..Default::default()
+impl<A> FromIterator<A> for RingBuffer<A> {
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
+        let mut ring_buffer = Self::with_capacity(10);
+        for item in iter.into_iter() {
+            ring_buffer.push(item)
         }
+        ring_buffer
+    }
+}
+
+impl Account {
+    pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
+        let mut db = Db::<(i64, Transaction), 1024>::from_path(path)?;
+
+        let mut transactions = db.rows().collect::<Vec<_>>();
+
+        let balance = transactions
+            .last()
+            .map(|(balance, _)| *balance)
+            .unwrap_or_default();
+
+        transactions.reverse();
+
+        Ok(Account {
+            limit,
+            balance,
+            transactions: transactions
+                .into_iter()
+                .map(|(_, transaction)| transaction)
+                .collect(),
+            db,
+        })
     }
 
     pub fn transact(&mut self, transaction: Transaction) -> Result<(), &'static str> {
-        match transaction.kind {
-            TransactionType::Credit => {
-                self.balance += transaction.value;
-                self.transactions.push(transaction);
-                Ok(())
-            }
+        let balance = match transaction.kind {
+            TransactionType::Credit => self.balance + transaction.value,
             TransactionType::Debit => {
                 if self.balance + self.limit >= transaction.value {
-                    self.balance -= transaction.value;
-                    self.transactions.push(transaction);
-                    Ok(())
+                    self.balance - transaction.value
                 } else {
-                    Err("Não tem limite o suficiente")
+                    return Err("Não tem limite o suficiente");
                 }
             }
-        }
+        };
+        self.db
+            .insert((balance, transaction.clone()))
+            .map_err(|_| "Erro ao persistir")?;
+        self.balance = balance;
+        self.transactions.push(transaction);
+        Ok(())
     }
 }
 
@@ -123,12 +153,13 @@ async fn main() {
         .and_then(|port| port.parse::<u16>().ok())
         .unwrap_or(9999);
 
+    #[rustfmt::skip]
     let accounts = HashMap::<u8, RwLock<Account>>::from_iter([
-        (1, RwLock::new(Account::with_limit(100_000))),
-        (2, RwLock::new(Account::with_limit(80_000))),
-        (3, RwLock::new(Account::with_limit(1_000_000))),
-        (4, RwLock::new(Account::with_limit(10_000_000))),
-        (5, RwLock::new(Account::with_limit(500_000))),
+        (1, RwLock::new(Account::with_db("account-1.espora", 100_000).unwrap())),
+        (2, RwLock::new(Account::with_db("account-2.espora", 80_000).unwrap())),
+        (3, RwLock::new(Account::with_db("account-3.espora", 1_000_000).unwrap())),
+        (4, RwLock::new(Account::with_db("account-4.espora", 10_000_000).unwrap())),
+        (5, RwLock::new(Account::with_db("account-5.espora", 500_000).unwrap())),
     ]);
 
     let app = Router::new()
