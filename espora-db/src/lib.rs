@@ -113,10 +113,13 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
     pub fn insert(&mut self, row: T) -> Result<(), DbError> {
         self.current_page.insert(row);
 
-        // TODO: fazer um único write
-        self.writer.write_all(self.current_page.as_ref());
-        self.writer
-            .write_all(&vec![0; PAGE_SIZE - self.current_page.len()]);
+        self.writer.write_all(
+            &[
+                self.current_page.as_ref(),
+                &vec![0; PAGE_SIZE - self.current_page.len()],
+            ]
+            .concat(),
+        );
 
         if self.current_page.available_rows() == 0 {
             self.current_page = Page::new();
