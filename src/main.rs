@@ -22,8 +22,8 @@ use tokio::sync::RwLock;
 struct Account {
     balance: i64,
     limit: i64,
-    transactions: RingBuffer<Transaction>,
-    db: Db<(i64, Transaction), 1024>,
+    transactions: RingBuffer<Transaction, 10>,
+    db: Db<(i64, Transaction), 128>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -78,7 +78,7 @@ impl<A> FromIterator<A> for RingBuffer<A> {
 
 impl Account {
     pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
-        let mut db = Db::<(i64, Transaction), 1024>::from_path(path)?;
+        let mut db = Db::<(i64, Transaction), 128>::from_path(path)?;
 
         let mut transactions = db.rows().collect::<Vec<_>>();
 
