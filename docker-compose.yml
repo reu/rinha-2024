@@ -19,22 +19,10 @@ services:
     ports:
       - "3000:3000"
 
-  # rinha-lb-tcp:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.lb-tcp
-  #   ports:
-  #     - "9999:9999"
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.9"
-  #         memory: "100MB"
-
-  rinha-lb:
+  rinha-lb-tcp:
     build:
       context: .
-      dockerfile: Dockerfile.lb
+      dockerfile: Dockerfile.lb-tcp
     ports:
       - "9999:9999"
     deploy:
@@ -42,6 +30,18 @@ services:
         limits:
           cpus: "0.9"
           memory: "100MB"
+
+  # rinha-lb:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.lb
+  #   ports:
+  #     - "9999:9999"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.9"
+  #         memory: "100MB"
 
   # nginx:
   #   image: nginx:latest
