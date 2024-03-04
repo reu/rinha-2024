@@ -56,12 +56,21 @@ impl<const SIZE: usize, T> RingBuffer<T, SIZE> {
         Self(VecDeque::with_capacity(SIZE))
     }
 
-    pub fn push(&mut self, item: T) {
+    pub fn push_front(&mut self, item: T) {
         if self.0.len() == self.0.capacity() {
             self.0.pop_back();
             self.0.push_front(item);
         } else {
             self.0.push_front(item);
+        }
+    }
+
+    pub fn push_back(&mut self, item: T) {
+        if self.0.len() == self.0.capacity() {
+            self.0.pop_front();
+            self.0.push_back(item);
+        } else {
+            self.0.push_back(item);
         }
     }
 }
@@ -79,7 +88,7 @@ impl<const SIZE: usize, A> FromIterator<A> for RingBuffer<A, SIZE> {
     fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
         let mut ring_buffer = Self::new();
         for item in iter.into_iter() {
-            ring_buffer.push(item)
+            ring_buffer.push_back(item);
         }
         ring_buffer
     }
@@ -124,7 +133,7 @@ impl Account {
             .insert((balance, transaction.clone()))
             .map_err(|_| "Erro ao persistir")?;
         self.balance = balance;
-        self.transactions.push(transaction);
+        self.transactions.push_front(transaction);
         Ok(())
     }
 }
