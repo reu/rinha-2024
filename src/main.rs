@@ -26,7 +26,7 @@ struct Account {
     db: Db<(i64, Transaction), 128>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "String")]
 struct Description(String);
 
@@ -42,7 +42,7 @@ impl TryFrom<String> for Description {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 struct RingBuffer<T>(VecDeque<T>);
 
 impl<T> Default for RingBuffer<T> {
@@ -120,7 +120,7 @@ impl Account {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 enum TransactionType {
     #[serde(rename = "c")]
     Credit,
@@ -128,7 +128,7 @@ enum TransactionType {
     Debit,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Transaction {
     #[serde(rename = "valor")]
     value: i64,
