@@ -43,14 +43,12 @@ impl Account {
     pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
         let mut db = Db::<(i64, Transaction), 128>::from_path(path)?;
 
-        let mut transactions = db.rows().collect::<Vec<_>>();
+        let transactions = db.rows_reverse().take(10).collect::<Vec<_>>();
 
         let balance = transactions
-            .last()
+            .first()
             .map(|(balance, _)| *balance)
             .unwrap_or_default();
-
-        transactions.reverse();
 
         Ok(Account {
             limit,
@@ -124,6 +122,8 @@ async fn main() {
         (4, RwLock::new(Account::with_db("account-4.espora", 10_000_000).unwrap())),
         (5, RwLock::new(Account::with_db("account-5.espora", 500_000).unwrap())),
     ]);
+
+    println!("Server ready");
 
     let app = Router::new()
         .route("/clientes/:id/transacoes", post(create_transaction))

@@ -12,6 +12,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 const PAGE_SIZE: usize = 4096;
 
+#[derive(Debug)]
 struct Page<const ROW_SIZE: usize = 64> {
     data: Vec<u8>,
 }
@@ -148,11 +149,39 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
         })
     }
 
+    fn pages_reverse(&mut self) -> impl Iterator<Item = Page<ROW_SIZE>> + '_ {
+        let mut cursor = 1;
+        iter::from_fn(move || {
+            let offset = (cursor * PAGE_SIZE) as i64;
+
+            if self.reader.seek(io::SeekFrom::End(-offset)).is_err() {
+                return None;
+            }
+
+            let mut buf = vec![0; PAGE_SIZE];
+            cursor += 1;
+            match self.reader.read_exact(&mut buf) {
+                Ok(()) => Some(Page::from_bytes(buf).unwrap()),
+                Err(_) => None,
+            }
+        })
+    }
+
     pub fn rows(&mut self) -> impl Iterator<Item = T> + '_ {
         self.pages().flat_map(|page| {
             page.rows()
                 .filter_map(|row| bitcode::deserialize(row).ok())
                 .collect::<Vec<_>>()
+        })
+    }
+
+    pub fn rows_reverse(&mut self) -> impl Iterator<Item = T> + '_ {
+        self.pages_reverse().flat_map(|page| {
+            page.rows()
+                .filter_map(|row| bitcode::deserialize(row).ok())
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
         })
     }
 }
@@ -202,5 +231,35 @@ mod tests {
         assert_eq!((50, String::from("Primeira")), rows.next().unwrap());
         assert_eq!((-20, String::from("Segunda")), rows.next().unwrap());
         assert!(rows.next().is_none());
+    }
+
+    #[test]
+    fn test_db_rows() {
+        let tmp = tempdir().unwrap();
+        let mut db = Db::<i64, 2048>::from_path(tmp.path().join("test.espora")).unwrap();
+
+        db.insert(1);
+        db.insert(2);
+        db.insert(3);
+        db.insert(4);
+        db.insert(5);
+
+        let mut rows = db.rows().collect::<Vec<_>>();
+        assert_eq!(vec![1, 2, 3, 4, 5], rows);
+    }
+
+    #[test]
+    fn test_db_rows_reverse() {
+        let tmp = tempdir().unwrap();
+        let mut db = Db::<i64, 2048>::from_path(tmp.path().join("test.espora")).unwrap();
+
+        db.insert(1);
+        db.insert(2);
+        db.insert(3);
+        db.insert(4);
+        db.insert(5);
+
+        let mut rows = db.rows_reverse().collect::<Vec<_>>();
+        assert_eq!(vec![5, 4, 3, 2, 1], rows);
     }
 }
