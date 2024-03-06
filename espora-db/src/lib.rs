@@ -1,5 +1,5 @@
 use std::{
-    error::Error,
+    error, fmt,
     fs::{File, OpenOptions},
     io::{self, Read, Seek, Write},
     iter,
@@ -17,10 +17,34 @@ struct Page<const ROW_SIZE: usize = 64> {
 }
 
 #[derive(Debug)]
-pub enum DbError {
+pub enum Error {
     Io(io::Error),
-    Serialize(Box<dyn Error>),
+    Serialization(Box<dyn error::Error>),
 }
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(err) => write!(f, "{err}"),
+            Self::Serialization(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Error::Io(err)
+    }
+}
+
+impl From<bitcode::Error> for Error {
+    fn from(err: bitcode::Error) -> Self {
+        Error::Serialization(Box::new(err))
+    }
+}
+
+type DbResult<T> = Result<T, DbError>;
 
 impl<const ROW_SIZE: usize> Page<ROW_SIZE> {
     pub fn new() -> Self {
@@ -36,17 +60,15 @@ impl<const ROW_SIZE: usize> Page<ROW_SIZE> {
         Ok(Self { data })
     }
 
-    pub fn insert<S: Serialize>(&mut self, row: S) -> Result<(), DbError> {
-        let serialized =
-            bitcode::serialize(&row).map_err(|err| DbError::Serialize(Box::new(err)))?;
+    pub fn insert<S: Serialize>(&mut self, row: S) -> DbResult<()> {
+        let serialized = bitcode::serialize(&row)?;
         let size = serialized.len() as u64;
         let size = size.to_be_bytes();
 
-        self.data.write(&size).map_err(DbError::Io)?;
-        self.data.write(&serialized).map_err(DbError::Io)?;
+        self.data.write_all(&size)?;
+        self.data.write_all(&serialized)?;
         self.data
-            .write_all(&vec![0; ROW_SIZE - (serialized.len() + size.len())])
-            .map_err(DbError::Io)?;
+            .write_all(&vec![0; ROW_SIZE - (serialized.len() + size.len())])?;
 
         Ok(())
     }
@@ -89,6 +111,7 @@ impl<const ROW_SIZE: usize> AsRef<[u8]> for Page<ROW_SIZE> {
         &self.data
     }
 }
+pub(crate) type DbResult<T> = Result<T, Error>;
 
 pub struct Db<T, const ROW_SIZE: usize = 64> {
     current_page: Page<ROW_SIZE>,
@@ -111,27 +134,23 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
         })
     }
 
-    pub fn insert(&mut self, row: T) -> Result<(), DbError> {
+    pub fn insert(&mut self, row: T) -> DbResult<()> {
         self.current_page.insert(row)?;
 
-        self.writer
-            .write_all(
-                &[
-                    self.current_page.as_ref(),
-                    &vec![0; PAGE_SIZE - self.current_page.len()],
-                ]
-                .concat(),
-            )
-            .map_err(DbError::Io)?;
+        self.writer.write_all(
+            &[
+                self.current_page.as_ref(),
+                &vec![0; PAGE_SIZE - self.current_page.len()],
+            ]
+            .concat(),
+        )?;
 
-        self.writer.sync_data().map_err(DbError::Io)?;
+        self.writer.sync_data()?;
 
         if self.current_page.available_rows() == 0 {
             self.current_page = Page::new();
         } else {
-            self.writer
-                .seek(io::SeekFrom::End(-(PAGE_SIZE as i64)))
-                .map_err(DbError::Io)?;
+            self.writer.seek(io::SeekFrom::End(-(PAGE_SIZE as i64)))?;
         }
 
         Ok(())
@@ -173,18 +192,18 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
         })
     }
 
-    pub fn rows(&mut self) -> impl Iterator<Item = T> + '_ {
+    pub fn rows(&mut self) -> impl Iterator<Item = DbResult<T>> + '_ {
         self.pages().flat_map(|page| {
             page.rows()
-                .filter_map(|row| bitcode::deserialize(row).ok())
+                .map(|row| bitcode::deserialize(row).map_err(|err| err.into()))
                 .collect::<Vec<_>>()
         })
     }
 
-    pub fn rows_reverse(&mut self) -> impl Iterator<Item = T> + '_ {
+    pub fn rows_reverse(&mut self) -> impl Iterator<Item = DbResult<T>> + '_ {
         self.pages_reverse().flat_map(|page| {
             page.rows()
-                .filter_map(|row| bitcode::deserialize(row).ok())
+                .map(|row| bitcode::deserialize(row).map_err(|err| err.into()))
                 .collect::<Vec<_>>()
                 .into_iter()
                 .rev()
@@ -236,7 +255,7 @@ mod tests {
         db.insert(4).unwrap();
         db.insert(5).unwrap();
 
-        let rows = db.rows().collect::<Vec<_>>();
+        let rows = db.rows().collect::<DbResult<Vec<_>>>().unwrap();
         assert_eq!(vec![1, 2, 3, 4, 5], rows);
     }
 
@@ -251,7 +270,7 @@ mod tests {
         db.insert(4).unwrap();
         db.insert(5).unwrap();
 
-        let rows = db.rows_reverse().collect::<Vec<_>>();
+        let rows = db.rows_reverse().collect::<DbResult<Vec<_>>>().unwrap();
         assert_eq!(vec![5, 4, 3, 2, 1], rows);
     }
 }

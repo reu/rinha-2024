@@ -7,7 +7,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use espora_db::Db;
+use espora_db::{Db, Error as DbError};
 use ring_buffer::RingBuffer;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -43,7 +43,10 @@ impl Account {
     pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
         let mut db = Db::<(i64, Transaction), 128>::from_path(path)?;
 
-        let transactions = db.rows_reverse().take(10).collect::<Vec<_>>();
+        let transactions = db
+            .rows_reverse()
+            .take(10)
+            .collect::<Result<Vec<_>, DbError>>()?;
 
         let balance = transactions
             .first()
