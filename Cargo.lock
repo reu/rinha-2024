@@ -634,6 +634,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rinha-app"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "rinha-load-balancer"
 version = "0.1.0"
 dependencies = [
