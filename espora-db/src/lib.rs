@@ -122,6 +122,8 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             .concat(),
         );
 
+        self.writer.sync_data();
+
         if self.current_page.available_rows() == 0 {
             self.current_page = Page::new();
         } else {
