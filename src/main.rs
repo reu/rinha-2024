@@ -123,7 +123,7 @@ async fn main() {
         (5, RwLock::new(Account::with_db("account-5.espora", 500_000).unwrap())),
     ]);
 
-    println!("Server ready");
+    println!("Server ready {port}");
 
     let app = Router::new()
         .route("/clientes/:id/transacoes", post(create_transaction))

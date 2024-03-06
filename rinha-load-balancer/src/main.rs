@@ -65,7 +65,7 @@ impl LoadBalancer for RinhaAccountBalancer {
 async fn main() {
     let listener = TcpListener::bind("0.0.0.0:9999").await.unwrap();
 
-    let addrs = ["api1:3000", "api2:3000"];
+    let addrs = ["0.0.0.0:9997", "0.0.0.0:9998"];
 
     let client = Client::builder(TokioExecutor::new())
         .http2_only(true)

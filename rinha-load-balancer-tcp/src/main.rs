@@ -6,9 +6,10 @@ use tokio::{
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let listener = TcpListener::bind("0.0.0.0:9999").await?;
-    let addrs = ["api1:3000", "api2:3000"];
+    let addrs = ["0.0.0.0:9997", "0.0.0.0:9998"];
     let mut counter = 0;
 
+    println!("TCP lb ready 9999");
     while let Ok((mut downstream, _)) = listener.accept().await {
         counter += 1;
         let addr = addrs[counter % addrs.len()];
