@@ -4,9 +4,14 @@ services:
   api01: &api
     build:
       context: .
+      dockerfile: Dockerfile.app
     hostname: api1
+    network_mode: host
+    depends_on:
+      - db
     environment:
-      PORT: 3000
+      PORT: 9998
+      DB: "0.0.0.0:9995"
     deploy:
       resources:
         limits:
@@ -16,19 +21,35 @@ services:
   api02:
     <<: *api
     hostname: api2
-    ports:
-      - "3000:3000"
+    environment:
+      PORT: 9997
+      DB: "0.0.0.0:9995"
+
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    network_mode: host
+    environment:
+      PORT: 9995
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "100MB"
 
   rinha-lb-tcp:
     build:
       context: .
       dockerfile: Dockerfile.lb-tcp
-    ports:
-      - "9999:9999"
+    depends_on:
+      - api01
+      - api02
+    network_mode: host
     deploy:
       resources:
         limits:
-          cpus: "0.9"
+          cpus: "0.4"
           memory: "100MB"
 
   # rinha-lb:
@@ -58,7 +79,7 @@ services:
   #         cpus: "1"
   #         memory: "100MB"
 
-networks:
-  default:
-    driver: bridge
-    name: rinha-nginx-2024q1
+# networks:
+#   default:
+#     driver: bridge
+#     name: rinha-nginx-2024q1
