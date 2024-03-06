@@ -2,6 +2,8 @@ FROM rust:1-slim-buster AS build
 
 RUN cargo new --bin app
 WORKDIR /app
+RUN cargo new --lib espora-db
+RUN cargo new --bin rinha-app
 RUN cargo new --bin rinha-load-balancer
 RUN cargo new --bin rinha-load-balancer-tcp
 
