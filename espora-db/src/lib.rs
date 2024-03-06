@@ -43,7 +43,7 @@ impl From<bitcode::Error> for Error {
 
 pub(crate) type DbResult<T> = Result<T, Error>;
 
-pub struct Db<T, const ROW_SIZE: usize = 64> {
+pub struct Db<T, const ROW_SIZE: usize> {
     current_page: Page<ROW_SIZE>,
     reader: File,
     writer: File,
