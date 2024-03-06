@@ -118,7 +118,7 @@ async fn main() {
         .unwrap_or(9999);
 
     #[rustfmt::skip]
-    let accounts = HashMap::<u8, RwLock<Account>>::from_iter([
+    let accounts = HashMap::from_iter([
         (1, RwLock::new(Account::with_db("account-1.espora", 100_000).unwrap())),
         (2, RwLock::new(Account::with_db("account-2.espora", 80_000).unwrap())),
         (3, RwLock::new(Account::with_db("account-3.espora", 1_000_000).unwrap())),
