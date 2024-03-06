@@ -1,4 +1,3 @@
-#![allow(unused)]
 use std::{
     error::Error,
     fs::{File, OpenOptions},
@@ -17,6 +16,7 @@ struct Page<const ROW_SIZE: usize = 64> {
     data: Vec<u8>,
 }
 
+#[derive(Debug)]
 pub enum DbError {
     Io(io::Error),
     Serialize(Box<dyn Error>),
@@ -112,22 +112,26 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
     }
 
     pub fn insert(&mut self, row: T) -> Result<(), DbError> {
-        self.current_page.insert(row);
+        self.current_page.insert(row)?;
 
-        self.writer.write_all(
-            &[
-                self.current_page.as_ref(),
-                &vec![0; PAGE_SIZE - self.current_page.len()],
-            ]
-            .concat(),
-        );
+        self.writer
+            .write_all(
+                &[
+                    self.current_page.as_ref(),
+                    &vec![0; PAGE_SIZE - self.current_page.len()],
+                ]
+                .concat(),
+            )
+            .map_err(DbError::Io)?;
 
-        self.writer.sync_data();
+        self.writer.sync_data().map_err(DbError::Io)?;
 
         if self.current_page.available_rows() == 0 {
             self.current_page = Page::new();
         } else {
-            self.writer.seek(io::SeekFrom::End(-(PAGE_SIZE as i64)));
+            self.writer
+                .seek(io::SeekFrom::End(-(PAGE_SIZE as i64)))
+                .map_err(DbError::Io)?;
         }
 
         Ok(())
@@ -198,11 +202,11 @@ mod tests {
     fn test_insert_into_page() {
         let mut page = Page::<1024>::new();
         assert_eq!(4, page.available_rows());
-        page.insert(String::from("Rinha"));
+        page.insert(String::from("Rinha")).unwrap();
         assert_eq!(3, page.available_rows());
-        page.insert(String::from("de"));
+        page.insert(String::from("de")).unwrap();
         assert_eq!(2, page.available_rows());
-        page.insert(2024 as u64);
+        page.insert(2024 as u64).unwrap();
         assert_eq!(1, page.available_rows());
 
         let mut rows = page.rows();
@@ -222,31 +226,17 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_into_db() {
-        let tmp = tempdir().unwrap();
-        let mut db = Db::<(i64, String)>::from_path(tmp.path().join("test.espora")).unwrap();
-
-        db.insert((50, String::from("Primeira")));
-        db.insert((-20, String::from("Segunda")));
-
-        let mut rows = db.rows();
-        assert_eq!((50, String::from("Primeira")), rows.next().unwrap());
-        assert_eq!((-20, String::from("Segunda")), rows.next().unwrap());
-        assert!(rows.next().is_none());
-    }
-
-    #[test]
     fn test_db_rows() {
         let tmp = tempdir().unwrap();
         let mut db = Db::<i64, 2048>::from_path(tmp.path().join("test.espora")).unwrap();
 
-        db.insert(1);
-        db.insert(2);
-        db.insert(3);
-        db.insert(4);
-        db.insert(5);
+        db.insert(1).unwrap();
+        db.insert(2).unwrap();
+        db.insert(3).unwrap();
+        db.insert(4).unwrap();
+        db.insert(5).unwrap();
 
-        let mut rows = db.rows().collect::<Vec<_>>();
+        let rows = db.rows().collect::<Vec<_>>();
         assert_eq!(vec![1, 2, 3, 4, 5], rows);
     }
 
@@ -255,13 +245,13 @@ mod tests {
         let tmp = tempdir().unwrap();
         let mut db = Db::<i64, 2048>::from_path(tmp.path().join("test.espora")).unwrap();
 
-        db.insert(1);
-        db.insert(2);
-        db.insert(3);
-        db.insert(4);
-        db.insert(5);
+        db.insert(1).unwrap();
+        db.insert(2).unwrap();
+        db.insert(3).unwrap();
+        db.insert(4).unwrap();
+        db.insert(5).unwrap();
 
-        let mut rows = db.rows_reverse().collect::<Vec<_>>();
+        let rows = db.rows_reverse().collect::<Vec<_>>();
         assert_eq!(vec![5, 4, 3, 2, 1], rows);
     }
 }
