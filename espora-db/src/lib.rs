@@ -12,11 +12,13 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::page::{Page, PAGE_SIZE};
 
 mod page;
+#[cfg(feature = "tokio")]
+pub mod tokio;
 
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
-    Serialization(Box<dyn error::Error>),
+    Serialization(Box<dyn error::Error + Send + Sync>),
 }
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
