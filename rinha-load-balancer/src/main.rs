@@ -5,6 +5,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
+    time::Duration,
 };
 
 use axum::{
@@ -67,9 +68,14 @@ async fn main() {
 
     let addrs = ["0.0.0.0:9997", "0.0.0.0:9998"];
 
-    let client = Client::builder(TokioExecutor::new())
-        .http2_only(true)
-        .build_http::<Body>();
+    let client = {
+        let mut connector = HttpConnector::new();
+        connector.set_keepalive(Some(Duration::from_secs(60)));
+        connector.set_nodelay(true);
+        Client::builder(TokioExecutor::new())
+            .http2_only(true)
+            .build::<_, Body>(connector)
+    };
 
     #[allow(unused)]
     let round_robin = RoundRobin {
