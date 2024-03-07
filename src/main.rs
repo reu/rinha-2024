@@ -126,8 +126,6 @@ async fn main() {
         (5, RwLock::new(Account::with_db("account-5.espora", 500_000).unwrap())),
     ]);
 
-    println!("Server ready {port}");
-
     let app = Router::new()
         .route("/clientes/:id/transacoes", post(create_transaction))
         .route("/clientes/:id/extrato", get(view_account))
@@ -136,6 +134,8 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
         .unwrap();
+
+    println!("DB ({}) ready {port}", env!("CARGO_PKG_VERSION"));
 
     axum::serve(listener, app).await.unwrap();
 }

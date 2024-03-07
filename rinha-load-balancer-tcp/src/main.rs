@@ -9,7 +9,7 @@ async fn main() -> io::Result<()> {
     let addrs = ["0.0.0.0:9997", "0.0.0.0:9998"];
     let mut counter = 0;
 
-    println!("TCP lb ready 9999");
+    println!("TCP lb ({}) ready 9999", env!("CARGO_PKG_VERSION"));
     while let Ok((mut downstream, _)) = listener.accept().await {
         downstream.set_nodelay(true)?;
         counter += 1;

@@ -95,6 +95,8 @@ async fn main() {
 
     let app = proxy.with_state(app_state);
 
+    println!("HTTP lb ({}) ready 9999", env!("CARGO_PKG_VERSION"));
+
     axum::serve(listener, app).await.unwrap();
 }
 

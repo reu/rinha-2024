@@ -5,6 +5,8 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[tokio::main]
 async fn main() -> io::Result<()> {
     let port = env::var("PORT")
@@ -17,7 +19,7 @@ async fn main() -> io::Result<()> {
 
     let listener = TcpListener::bind(("0.0.0.0", port)).await?;
 
-    println!("App ready {port}");
+    println!("App ({VERSION}) ready {port}");
 
     while let Ok((mut downstream, _)) = listener.accept().await {
         tokio::spawn(async move {
