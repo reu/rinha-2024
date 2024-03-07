@@ -41,7 +41,9 @@ impl TryFrom<String> for Description {
 
 impl Account {
     pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
-        let mut db = Db::<(i64, Transaction), 128>::from_path(path)?;
+        let mut db = Db::<(i64, Transaction), 128>::builder()
+            .sync_write(option_env!("ESPORA_SYNC_WRITE") == Some("1"))
+            .build(path)?;
 
         let transactions = db
             .rows_reverse()

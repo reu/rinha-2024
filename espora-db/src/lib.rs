@@ -9,8 +9,12 @@ use std::{
 
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::page::{Page, PAGE_SIZE};
+use crate::{
+    builder::Builder,
+    page::{Page, PAGE_SIZE},
+};
 
+pub mod builder;
 mod page;
 #[cfg(feature = "tokio")]
 pub mod tokio;
@@ -49,10 +53,15 @@ pub struct Db<T, const ROW_SIZE: usize> {
     current_page: Page<ROW_SIZE>,
     reader: File,
     writer: File,
+    pub(crate) sync_write: bool,
     data: PhantomData<T>,
 }
 
 impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
+    pub fn builder() -> Builder {
+        Builder::default()
+    }
+
     pub fn from_path(path: impl AsRef<Path>) -> io::Result<Self> {
         let mut file = OpenOptions::new().write(true).create(true).open(&path)?;
         file.seek(io::SeekFrom::End(0))?;
@@ -62,6 +71,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             current_page: Page::new(),
             reader: File::open(&path)?,
             writer: file,
+            sync_write: true,
             data: PhantomData,
         })
     }
@@ -77,7 +87,9 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             .concat(),
         )?;
 
-        self.writer.sync_data()?;
+        if self.sync_write {
+            self.writer.sync_data()?;
+        }
 
         if self.current_page.available_rows() == 0 {
             self.current_page = Page::new();

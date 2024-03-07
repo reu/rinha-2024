@@ -9,6 +9,7 @@ use tokio::{
 };
 
 use crate::{
+    builder::Builder,
     page::{Page, PAGE_SIZE},
     DbResult,
 };
@@ -17,10 +18,15 @@ pub struct Db<T, const ROW_SIZE: usize> {
     current_page: Page<ROW_SIZE>,
     reader: File,
     writer: File,
+    pub(crate) sync_write: bool,
     data: PhantomData<T>,
 }
 
 impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
+    pub fn builder() -> Builder {
+        Builder::default()
+    }
+
     pub async fn from_path(path: impl AsRef<Path>) -> io::Result<Self> {
         let mut file = OpenOptions::new()
             .write(true)
@@ -35,6 +41,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             current_page: Page::new(),
             reader: File::open(&path).await?,
             writer: file,
+            sync_write: true,
             data: PhantomData,
         })
     }
@@ -52,7 +59,9 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             )
             .await?;
 
-        self.writer.sync_data().await?;
+        if self.sync_write {
+            self.writer.sync_data().await?;
+        }
 
         if self.current_page.available_rows() == 0 {
             self.current_page = Page::new();
