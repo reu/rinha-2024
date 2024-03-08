@@ -15,4 +15,4 @@ tokio = ["async-stream", "futures", "dep:tokio"]
 
 [dev-dependencies]
 tempfile = "3.10.1"
-tokio = { version = "1.36.0", features = ["fs", "io-std", "test-util"] }
+tokio = { version = "1.36.0", features = ["full"] }

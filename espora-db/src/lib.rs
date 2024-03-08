@@ -63,12 +63,24 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
     }
 
     pub fn from_path(path: impl AsRef<Path>) -> io::Result<Self> {
-        let mut file = OpenOptions::new().write(true).create(true).open(&path)?;
-        file.seek(io::SeekFrom::End(0))?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&path)?;
 
-        // TODO: ler o arquivo e iniciar a página corretamente
+        let current_page = if file.seek(io::SeekFrom::End(-(PAGE_SIZE as i64))).is_ok() {
+            let mut buf = vec![0; PAGE_SIZE];
+            file.read_exact(&mut buf)?;
+            file.seek(io::SeekFrom::End(-(PAGE_SIZE as i64)))?;
+            Page::from_bytes(buf)
+        } else {
+            file.seek(io::SeekFrom::End(0))?;
+            Page::new()
+        };
+
         Ok(Self {
-            current_page: Page::new(),
+            current_page,
             reader: File::open(&path)?,
             writer: file,
             sync_write: true,
@@ -112,7 +124,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             let mut buf = vec![0; PAGE_SIZE];
             cursor += 1;
             match self.reader.read_exact(&mut buf) {
-                Ok(()) => Some(Page::from_bytes(buf).unwrap()),
+                Ok(()) => Some(Page::from_bytes(buf)),
                 Err(_) => None,
             }
         })
@@ -130,7 +142,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             let mut buf = vec![0; PAGE_SIZE];
             cursor += 1;
             match self.reader.read_exact(&mut buf) {
-                Ok(()) => Some(Page::from_bytes(buf).unwrap()),
+                Ok(()) => Some(Page::from_bytes(buf)),
                 Err(_) => None,
             }
         })

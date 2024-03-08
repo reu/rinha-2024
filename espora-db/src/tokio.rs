@@ -29,16 +29,28 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
 
     pub async fn from_path(path: impl AsRef<Path>) -> io::Result<Self> {
         let mut file = OpenOptions::new()
+            .read(true)
             .write(true)
             .create(true)
             .open(&path)
             .await?;
 
-        file.seek(io::SeekFrom::End(0)).await?;
+        let current_page = if file
+            .seek(io::SeekFrom::End(-(PAGE_SIZE as i64)))
+            .await
+            .is_ok()
+        {
+            let mut buf = vec![0; PAGE_SIZE];
+            file.read_exact(&mut buf).await?;
+            file.seek(io::SeekFrom::End(-(PAGE_SIZE as i64))).await?;
+            Page::from_bytes(buf)
+        } else {
+            file.seek(io::SeekFrom::End(0)).await?;
+            Page::new()
+        };
 
-        // TODO: ler o arquivo e iniciar a página corretamente
         Ok(Self {
-            current_page: Page::new(),
+            current_page,
             reader: File::open(&path).await?,
             writer: file,
             sync_write: true,
@@ -87,7 +99,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
                 let mut buf = vec![0; PAGE_SIZE];
                 cursor += 1;
                 match self.reader.read_exact(&mut buf).await {
-                    Ok(n) if n > 0 => yield Page::<ROW_SIZE>::from_bytes(buf).unwrap(),
+                    Ok(n) if n > 0 => yield Page::<ROW_SIZE>::from_bytes(buf),
                     _ => break,
                 }
             }
@@ -107,7 +119,7 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
                 let mut buf = vec![0; PAGE_SIZE];
                 cursor += 1;
                 match self.reader.read_exact(&mut buf).await {
-                    Ok(n) if n > 0 => yield Page::<ROW_SIZE>::from_bytes(buf).unwrap(),
+                    Ok(n) if n > 0 => yield Page::<ROW_SIZE>::from_bytes(buf),
                     _ => break,
                 }
             }
