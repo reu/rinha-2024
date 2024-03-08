@@ -219,7 +219,7 @@ dependencies = [
 
 [[package]]
 name = "espora-db"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "async-stream",
  "bitcode",
@@ -674,7 +674,7 @@ checksum = "2b37805477eee599a61753230f511ae94d737f69b536e468e294723ad5f1b75f"
 
 [[package]]
 name = "rinha-2024"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "axum",
  "espora-db",
@@ -686,14 +686,14 @@ dependencies = [
 
 [[package]]
 name = "rinha-app"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "tokio",
 ]
 
 [[package]]
 name = "rinha-load-balancer"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "axum",
  "hyper-util",
@@ -702,7 +702,7 @@ dependencies = [
 
 [[package]]
 name = "rinha-load-balancer-tcp"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "tokio",
 ]

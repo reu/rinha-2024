@@ -2,7 +2,7 @@ workspace = { members = [ "espora-db", "rinha-app", "rinha-load-balancer", "rinh
 
 [package]
 name = "rinha-2024"
-version = "0.1.0"
+version = "1.0.1"
 edition = "2021"
 
 [profile.release]
