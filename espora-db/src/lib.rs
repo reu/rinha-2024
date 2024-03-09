@@ -4,9 +4,11 @@ use std::{
     io::{self, Read, Seek, Write},
     iter,
     marker::PhantomData,
+    os::fd::AsRawFd,
     path::Path,
 };
 
+use lock::LockHandle;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -15,6 +17,7 @@ use crate::{
 };
 
 pub mod builder;
+mod lock;
 mod page;
 #[cfg(feature = "tokio")]
 pub mod tokio;
@@ -110,6 +113,14 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
         }
 
         Ok(())
+    }
+
+    pub fn lock_writes(&mut self) -> DbResult<LockHandle> {
+        let fd = self.writer.as_raw_fd();
+        match unsafe { libc::flock(fd, libc::LOCK_EX) } {
+            0 => Ok(LockHandle { fd }),
+            _ => Err(io::Error::new(io::ErrorKind::Other, "couldn't acquire lock").into()),
+        }
     }
 
     fn pages(&mut self) -> impl Iterator<Item = Page<ROW_SIZE>> + '_ {

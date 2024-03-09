@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, error::Error, path::Path as FilePath, sync::Arc};
+use std::{collections::HashMap, env, path::Path as FilePath, sync::Arc};
 
 use axum::{
     extract::{Path, State},
@@ -7,7 +7,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use espora_db::{Db, Error as DbError};
+use espora_db::{tokio::Db, Error as DbError};
+use futures::{StreamExt, TryStreamExt};
 use ring_buffer::RingBuffer;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -40,15 +41,13 @@ impl TryFrom<String> for Description {
 }
 
 impl Account {
-    pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
+    pub async fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, DbError> {
         let mut db = Db::<(i64, Transaction), 128>::builder()
             .sync_write(option_env!("ESPORA_SYNC_WRITE") == Some("1"))
-            .build(path)?;
+            .build_tokio(path)
+            .await?;
 
-        let transactions = db
-            .rows_reverse()
-            .take(10)
-            .collect::<Result<Vec<_>, DbError>>()?;
+        let transactions = db.rows_reverse().take(10).try_collect::<Vec<_>>().await?;
 
         let balance = transactions
             .first()
@@ -66,7 +65,12 @@ impl Account {
         })
     }
 
-    pub fn transact(&mut self, transaction: Transaction) -> Result<(), &'static str> {
+    pub async fn transact(&mut self, transaction: Transaction) -> Result<(), &'static str> {
+        self.db
+            .lock_writes()
+            .await
+            .map_err(|_| "Não deu para lockar")?;
+
         let balance = match transaction.kind {
             TransactionType::Credit => self.balance + transaction.value,
             TransactionType::Debit => {
@@ -79,6 +83,7 @@ impl Account {
         };
         self.db
             .insert((balance, transaction.clone()))
+            .await
             .map_err(|_| "Erro ao persistir")?;
         self.balance = balance;
         self.transactions.push_front(transaction);
@@ -121,11 +126,11 @@ async fn main() {
 
     #[rustfmt::skip]
     let accounts = HashMap::from_iter([
-        (1, RwLock::new(Account::with_db("account-1.espora", 100_000).unwrap())),
-        (2, RwLock::new(Account::with_db("account-2.espora", 80_000).unwrap())),
-        (3, RwLock::new(Account::with_db("account-3.espora", 1_000_000).unwrap())),
-        (4, RwLock::new(Account::with_db("account-4.espora", 10_000_000).unwrap())),
-        (5, RwLock::new(Account::with_db("account-5.espora", 500_000).unwrap())),
+        (1, RwLock::new(Account::with_db("account-1.espora", 100_000).await.unwrap())),
+        (2, RwLock::new(Account::with_db("account-2.espora", 80_000).await.unwrap())),
+        (3, RwLock::new(Account::with_db("account-3.espora", 1_000_000).await.unwrap())),
+        (4, RwLock::new(Account::with_db("account-4.espora", 10_000_000).await.unwrap())),
+        (5, RwLock::new(Account::with_db("account-5.espora", 500_000).await.unwrap())),
     ]);
 
     let app = Router::new()
@@ -150,7 +155,7 @@ async fn create_transaction(
     match accounts.get(&account_id) {
         Some(account) => {
             let mut account = account.write().await;
-            match account.transact(transaction) {
+            match account.transact(transaction).await {
                 Ok(()) => Ok(Json(json!({
                     "limite": account.limit,
                     "saldo": account.balance,

@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, path::Path};
+use std::{marker::PhantomData, os::fd::AsRawFd, path::Path};
 
 use async_stream::stream;
 use futures::{stream, Stream, StreamExt};
@@ -6,10 +6,13 @@ use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     fs::{File, OpenOptions},
     io::{self, AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+    sync::oneshot,
+    task,
 };
 
 use crate::{
     builder::Builder,
+    lock::LockHandle,
     page::{Page, PAGE_SIZE},
     DbResult,
 };
@@ -84,6 +87,19 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
         }
 
         Ok(())
+    }
+
+    pub async fn lock_writes(&mut self) -> DbResult<LockHandle> {
+        let (tx, rx) = oneshot::channel();
+        let fd = self.writer.as_raw_fd();
+        task::spawn_blocking(move || match unsafe { libc::flock(fd, libc::LOCK_EX) } {
+            0 => tx.send(Ok(LockHandle { fd })),
+            _ => tx.send(Err(io::Error::new(
+                io::ErrorKind::Other,
+                "couldn't acquire lock",
+            ))),
+        });
+        Ok(rx.await.unwrap()?)
     }
 
     fn pages(&mut self) -> impl Stream<Item = Page<ROW_SIZE>> + '_ {
