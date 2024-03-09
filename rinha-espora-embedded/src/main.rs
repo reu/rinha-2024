@@ -18,9 +18,11 @@ use rinha::{DateTime, Transaction, TransactionType};
 use serde_json::json;
 use tokio::sync::Mutex;
 
+type Balance = i64;
+
 struct Account {
     limit: i64,
-    db: Db<(i64, Transaction), 128>,
+    db: Db<(Balance, Transaction), 128>,
 }
 
 impl Account {
@@ -33,7 +35,7 @@ impl Account {
         Ok(Account { limit, db })
     }
 
-    pub async fn transact(&mut self, transaction: Transaction) -> Result<i64, &'static str> {
+    pub async fn transact(&mut self, transaction: Transaction) -> Result<Balance, &'static str> {
         let lock = self
             .db
             .lock_writes()

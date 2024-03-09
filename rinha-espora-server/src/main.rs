@@ -15,11 +15,13 @@ use tokio::sync::RwLock;
 
 mod ring_buffer;
 
+type Balance = i64;
+
 struct Account {
-    balance: i64,
+    balance: Balance,
     limit: i64,
     transactions: RingBuffer<Transaction, 10>,
-    db: Db<(i64, Transaction), 128>,
+    db: Db<(Balance, Transaction), 128>,
 }
 
 impl Account {
