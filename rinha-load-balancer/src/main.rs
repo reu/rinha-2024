@@ -32,7 +32,7 @@ struct AppState {
 }
 
 struct RoundRobin {
-    addrs: Vec<&'static str>,
+    addrs: Vec<String>,
     req_counter: Arc<AtomicUsize>,
 }
 
@@ -43,12 +43,12 @@ trait LoadBalancer {
 impl LoadBalancer for RoundRobin {
     fn next_server(&self, _req: &Request) -> String {
         let count = self.req_counter.fetch_add(1, Ordering::Relaxed);
-        self.addrs[count % self.addrs.len()].to_string()
+        self.addrs[count % self.addrs.len()].clone()
     }
 }
 
 struct RinhaAccountBalancer {
-    addrs: Vec<&'static str>,
+    addrs: Vec<String>,
 }
 
 impl LoadBalancer for RinhaAccountBalancer {
@@ -70,9 +70,20 @@ async fn main() {
         .and_then(|port| port.parse::<u16>().ok())
         .unwrap_or(9999);
 
-    let listener = TcpListener::bind(("0.0.0.0", port)).await.unwrap();
+    let addrs = env::var("UPSTREAMS")
+        .ok()
+        .map(|upstream| {
+            upstream
+                .split(',')
+                .map(|addr| addr.trim().to_owned())
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or(vec![
+            String::from("0.0.0.0:9997"),
+            String::from("0.0.0.0:9998"),
+        ]);
 
-    let addrs = ["0.0.0.0:9997", "0.0.0.0:9998"];
+    let listener = TcpListener::bind(("0.0.0.0", port)).await.unwrap();
 
     let client = {
         let mut connector = HttpConnector::new();
@@ -85,13 +96,13 @@ async fn main() {
 
     #[allow(unused)]
     let round_robin = RoundRobin {
-        addrs: addrs.to_vec(),
+        addrs: addrs.clone(),
         req_counter: Arc::new(AtomicUsize::new(0)),
     };
 
     #[allow(unused)]
     let fixed_load_balancer = RinhaAccountBalancer {
-        addrs: addrs.to_vec(),
+        addrs: addrs.clone(),
     };
 
     let app_state = AppState {

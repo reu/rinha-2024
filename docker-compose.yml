@@ -45,6 +45,9 @@ services:
     depends_on:
       - api01
       - api02
+    environment:
+      PORT: 9999
+      UPSTREAMS: "0.0.0.0:9997,0.0.0.0:9998"
     network_mode: host
     deploy:
       resources:
