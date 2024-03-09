@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, path::Path as FilePath, sync::Arc};
+use std::{collections::HashMap, env, error::Error, path::Path as FilePath, sync::Arc};
 
 use axum::{
     extract::{Path, State},
@@ -7,10 +7,9 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use espora_db::{tokio::Db, Error as DbError};
-use futures::{StreamExt, TryStreamExt};
+use espora_db::{Db, Error as DbError};
 use ring_buffer::RingBuffer;
-use serde::{Deserialize, Serialize};
+use rinha::{Transaction, TransactionType};
 use serde_json::json;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::sync::RwLock;
@@ -24,30 +23,16 @@ struct Account {
     db: Db<(i64, Transaction), 128>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(try_from = "String")]
-struct Description(String);
-
-impl TryFrom<String> for Description {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.is_empty() || value.len() > 10 {
-            Err("Descricao inválida")
-        } else {
-            Ok(Self(value))
-        }
-    }
-}
-
 impl Account {
-    pub async fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, DbError> {
+    pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
         let mut db = Db::<(i64, Transaction), 128>::builder()
             .sync_write(option_env!("ESPORA_SYNC_WRITE") == Some("1"))
-            .build_tokio(path)
-            .await?;
+            .build(path)?;
 
-        let transactions = db.rows_reverse().take(10).try_collect::<Vec<_>>().await?;
+        let transactions = db
+            .rows_reverse()
+            .take(10)
+            .collect::<Result<Vec<_>, DbError>>()?;
 
         let balance = transactions
             .first()
@@ -65,12 +50,7 @@ impl Account {
         })
     }
 
-    pub async fn transact(&mut self, transaction: Transaction) -> Result<(), &'static str> {
-        self.db
-            .lock_writes()
-            .await
-            .map_err(|_| "Não deu para lockar")?;
-
+    pub fn transact(&mut self, transaction: Transaction) -> Result<(), &'static str> {
         let balance = match transaction.kind {
             TransactionType::Credit => self.balance + transaction.value,
             TransactionType::Debit => {
@@ -83,36 +63,11 @@ impl Account {
         };
         self.db
             .insert((balance, transaction.clone()))
-            .await
             .map_err(|_| "Erro ao persistir")?;
         self.balance = balance;
         self.transactions.push_front(transaction);
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum TransactionType {
-    #[serde(rename = "c")]
-    Credit,
-    #[serde(rename = "d")]
-    Debit,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Transaction {
-    #[serde(rename = "valor")]
-    value: i64,
-    #[serde(rename = "tipo")]
-    kind: TransactionType,
-    #[serde(rename = "descricao")]
-    description: Description,
-    #[serde(
-        rename = "realizada_em",
-        with = "time::serde::rfc3339",
-        default = "OffsetDateTime::now_utc"
-    )]
-    created_at: OffsetDateTime,
 }
 
 type AppState = Arc<HashMap<u8, RwLock<Account>>>;
@@ -126,11 +81,11 @@ async fn main() {
 
     #[rustfmt::skip]
     let accounts = HashMap::from_iter([
-        (1, RwLock::new(Account::with_db("account-1.espora", 100_000).await.unwrap())),
-        (2, RwLock::new(Account::with_db("account-2.espora", 80_000).await.unwrap())),
-        (3, RwLock::new(Account::with_db("account-3.espora", 1_000_000).await.unwrap())),
-        (4, RwLock::new(Account::with_db("account-4.espora", 10_000_000).await.unwrap())),
-        (5, RwLock::new(Account::with_db("account-5.espora", 500_000).await.unwrap())),
+        (1, RwLock::new(Account::with_db("account-1.espora", 100_000).unwrap())),
+        (2, RwLock::new(Account::with_db("account-2.espora", 80_000).unwrap())),
+        (3, RwLock::new(Account::with_db("account-3.espora", 1_000_000).unwrap())),
+        (4, RwLock::new(Account::with_db("account-4.espora", 10_000_000).unwrap())),
+        (5, RwLock::new(Account::with_db("account-5.espora", 500_000).unwrap())),
     ]);
 
     let app = Router::new()
@@ -155,7 +110,7 @@ async fn create_transaction(
     match accounts.get(&account_id) {
         Some(account) => {
             let mut account = account.write().await;
-            match account.transact(transaction).await {
+            match account.transact(transaction) {
                 Ok(()) => Ok(Json(json!({
                     "limite": account.limit,
                     "saldo": account.balance,

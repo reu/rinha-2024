@@ -1,9 +1,20 @@
-workspace = { members = [ "espora-db", "rinha-app", "rinha-load-balancer", "rinha-load-balancer-tcp"] }
+[workspace]
+members = [
+  "espora-db",
+  "rinha-app",
+  "rinha-espora-embedded",
+  "rinha-espora-server",
+  "rinha-load-balancer",
+  "rinha-load-balancer-tcp",
+]
 
 [package]
-name = "rinha-2024"
-version = "1.0.1"
+name = "rinha"
+version.workspace = true
 edition = "2021"
+
+[workspace.package]
+version = "1.0.1"
 
 [profile.release]
 codegen-units = 1
@@ -11,10 +22,5 @@ lto = true
 panic = "abort"
 
 [dependencies]
-axum = { version = "0.7.4", features = ["http2"] }
-espora-db = { path = "./espora-db", features = ["tokio"] }
-futures = "0.3.30"
 serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
-time = { version = "0.3.34", features = ["formatting", "macros", "serde", "parsing"] }
-tokio = { version = "1.36.0", features = ["full"] }
+time = { version = "0.3.34", features = ["macros", "serde"] }

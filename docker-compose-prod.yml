@@ -36,7 +36,7 @@ services:
           cpus: "0.5"
           memory: "250MB"
 
-  rinha-lb-tcp:
+  lb:
     image: rnavarro/rinha-backend-2024:1
     command: /app/rinha-load-balancer-tcp
     depends_on:

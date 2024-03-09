@@ -4,18 +4,18 @@ services:
   api01: &api
     build:
       context: .
-    command: /app/rinha-app
+    command: /app/rinha-espora-embedded
     hostname: api1
     network_mode: host
-    depends_on:
-      - db
     environment:
       PORT: 9998
-      DB: "0.0.0.0:9995"
+      DB: "/db"
+    volumes:
+      - db:/db
     deploy:
       resources:
         limits:
-          cpus: "0.3"
+          cpus: "0.6"
           memory: "100MB"
 
   api02:
@@ -23,20 +23,7 @@ services:
     hostname: api2
     environment:
       PORT: 9997
-      DB: "0.0.0.0:9995"
-
-  db:
-    build:
-      context: .
-    command: /app/rinha-espora-server
-    network_mode: host
-    environment:
-      PORT: 9995
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: "100MB"
+      DB: "/db"
 
   lb:
     build:
@@ -49,5 +36,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.4"
+          cpus: "0.3"
           memory: "100MB"
+
+volumes:
+  db:
+    name: db

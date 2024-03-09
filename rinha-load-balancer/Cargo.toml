@@ -1,6 +1,6 @@
 [package]
 name = "rinha-load-balancer"
-version = "1.0.1"
+version.workspace = true
 edition = "2021"
 
 [dependencies]
