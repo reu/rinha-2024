@@ -1,3 +1,6 @@
 .git/
 .github/
 target/
+README.md
+Dockerfile
+.docker-compose*
