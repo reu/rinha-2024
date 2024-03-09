@@ -14,9 +14,8 @@ use axum::{
 };
 use espora_db::{tokio::Db, Error as DbError};
 use futures::{StreamExt, TryStreamExt};
-use rinha::{Transaction, TransactionType};
+use rinha::{DateTime, Transaction, TransactionType};
 use serde_json::json;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::sync::Mutex;
 
 struct Account {
@@ -165,7 +164,7 @@ async fn view_account(
             Ok(Json(json!({
                 "saldo": {
                     "total": balance,
-                    "data_extrato": OffsetDateTime::now_utc().format(&Rfc3339).unwrap(),
+                    "data_extrato": DateTime::now(),
                     "limite": account.limit,
                 },
                 "ultimas_transacoes": transactions,

@@ -1,7 +1,7 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, fmt::Display};
 
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "String")]
@@ -35,10 +35,27 @@ pub struct Transaction {
     pub kind: TransactionType,
     #[serde(rename = "descricao")]
     pub description: Description,
-    #[serde(
-        rename = "realizada_em",
-        with = "time::serde::rfc3339",
-        default = "OffsetDateTime::now_utc"
-    )]
-    pub created_at: OffsetDateTime,
+    #[serde(rename = "realizada_em", default)]
+    pub created_at: DateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DateTime(#[serde(with = "time::serde::rfc3339")] OffsetDateTime);
+
+impl Default for DateTime {
+    fn default() -> Self {
+        Self(OffsetDateTime::now_utc())
+    }
+}
+
+impl Display for DateTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.format(&Rfc3339).unwrap())
+    }
+}
+
+impl DateTime {
+    pub fn now() -> DateTime {
+        Default::default()
+    }
 }

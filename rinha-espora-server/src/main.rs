@@ -9,9 +9,8 @@ use axum::{
 };
 use espora_db::{Db, Error as DbError};
 use ring_buffer::RingBuffer;
-use rinha::{Transaction, TransactionType};
+use rinha::{DateTime, Transaction, TransactionType};
 use serde_json::json;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use tokio::sync::RwLock;
 
 mod ring_buffer;
@@ -132,7 +131,7 @@ async fn view_account(
             Ok(Json(json!({
                 "saldo": {
                     "total": account.balance,
-                    "data_extrato": OffsetDateTime::now_utc().format(&Rfc3339).unwrap(),
+                    "data_extrato": DateTime::now(),
                     "limite": account.limit,
                 },
                 "ultimas_transacoes": account.transactions,
