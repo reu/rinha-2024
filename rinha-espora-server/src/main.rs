@@ -75,10 +75,9 @@ type AppState = Arc<HashMap<u8, RwLock<Account>>>;
 
 #[tokio::main]
 async fn main() {
-    let port = env::var("PORT")
+    let unix_socket = env::var("UNIX_SOCKET")
         .ok()
-        .and_then(|port| port.parse::<u16>().ok())
-        .unwrap_or(9999);
+        .unwrap_or(String::from("./rinha-espora-server.socket"));
 
     #[rustfmt::skip]
     let accounts = HashMap::from_iter([
@@ -94,13 +93,9 @@ async fn main() {
         .route("/clientes/:id/extrato", get(view_account))
         .with_state(Arc::new(accounts));
 
-    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
-        .await
-        .unwrap();
+    println!("DB ({}) ready {unix_socket}", env!("CARGO_PKG_VERSION"));
 
-    println!("DB ({}) ready {port}", env!("CARGO_PKG_VERSION"));
-
-    axum::serve(listener, app).await.unwrap();
+    axum_unix_socket::serve(unix_socket, app).await.unwrap();
 }
 
 async fn create_transaction(

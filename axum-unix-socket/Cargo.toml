@@ -1,0 +1,11 @@
+[package]
+name = "axum-unix-socket"
+edition = "2021"
+version.workspace = true
+
+[dependencies]
+axum = "0.7.4"
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1.3", features = ["tokio", "server-auto", "http1"] }
+tokio = { version = "1.36.0", features = ["full"] }
+tower = { version = "0.4", features = ["util"] }

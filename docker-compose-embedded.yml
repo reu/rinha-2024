@@ -8,10 +8,11 @@ services:
     hostname: api1
     network_mode: host
     environment:
-      PORT: 9998
+      UNIX_SOCKET: /app/unix-sockets/rinha-app1.socket
       DB: "/db"
     volumes:
       - db:/db
+      - sockets:/app/unix-sockets
     deploy:
       resources:
         limits:
@@ -22,7 +23,7 @@ services:
     <<: *api
     hostname: api2
     environment:
-      PORT: 9997
+      UNIX_SOCKET: /app/unix-sockets/rinha-app2.socket
       DB: "/db"
 
   lb:
@@ -34,14 +35,18 @@ services:
       - api02
     environment:
       PORT: 9999
-      UPSTREAMS: "0.0.0.0:9997,0.0.0.0:9998"
+      UPSTREAMS: "/app/unix-sockets/rinha-app1.socket,/app/unix-sockets/rinha-app2.socket"
     network_mode: host
     deploy:
       resources:
         limits:
           cpus: "0.3"
           memory: "100MB"
+    volumes:
+      - sockets:/app/unix-sockets
 
 volumes:
   db:
     name: db
+  sockets:
+    name: unix-sockets

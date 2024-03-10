@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "axum-unix-socket",
   "espora-db",
   "rinha-app",
   "rinha-espora-embedded",

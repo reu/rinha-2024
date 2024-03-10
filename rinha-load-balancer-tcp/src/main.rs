@@ -2,7 +2,7 @@ use std::env;
 
 use tokio::{
     io,
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, UnixStream},
 };
 
 #[tokio::main]
@@ -21,8 +21,8 @@ async fn main() -> io::Result<()> {
                 .collect::<Vec<String>>()
         })
         .unwrap_or(vec![
-            String::from("0.0.0.0:9997"),
-            String::from("0.0.0.0:9998"),
+            String::from("./rinha-app1.socket"),
+            String::from("./rinha-app2.socket"),
         ])
         .into_iter()
         .map(|addr| Box::leak(addr.into_boxed_str()) as &'static str)
@@ -37,8 +37,7 @@ async fn main() -> io::Result<()> {
         counter += 1;
         let addr = addrs[counter % addrs.len()];
         tokio::spawn(async move {
-            let mut upstream = TcpStream::connect(addr).await.unwrap();
-            upstream.set_nodelay(true).unwrap();
+            let mut upstream = UnixStream::connect(addr).await.unwrap();
             io::copy_bidirectional(&mut downstream, &mut upstream)
                 .await
                 .unwrap();

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7.4", features = ["http2"] }
+axum-unix-socket = { path = "../axum-unix-socket" }
 espora-db = { path = "../espora-db" }
 rinha = { path = "../" }
 serde = { version = "1.0.196", features = ["derive"] }
