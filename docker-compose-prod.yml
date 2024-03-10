@@ -11,9 +11,6 @@ services:
     environment:
       UNIX_SOCKET: /app/unix-sockets/rinha-app1.socket
       DB: /app/unix-sockets/rinha-espora_server.socket
-    environment:
-      PORT: 9998
-      DB: "0.0.0.0:9995"
     deploy:
       resources:
         limits:
@@ -33,7 +30,7 @@ services:
 
   db:
     image: rnavarro/rinha-backend-2024:1.2
-    command: /app/rinha-2024
+    command: /app/rinha-espora-server
     network_mode: host
     environment:
       UNIX_SOCKET: /app/unix-sockets/rinha-espora_server.socket
