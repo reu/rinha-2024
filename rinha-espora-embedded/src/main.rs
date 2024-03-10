@@ -3,6 +3,7 @@ use std::{
     env,
     path::{Path as FilePath, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 
 use axum::{
@@ -26,9 +27,13 @@ struct Account {
 }
 
 impl Account {
-    pub async fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, DbError> {
+    pub async fn with_db(
+        path: impl AsRef<FilePath>,
+        fsync_interval: Duration,
+        limit: i64,
+    ) -> Result<Self, DbError> {
         let db = Db::<(i64, Transaction), 128>::builder()
-            .sync_write(option_env!("ESPORA_SYNC_WRITE") == Some("1"))
+            .sync_write_interval(fsync_interval)
             .build_tokio(&path)
             .await?;
 
@@ -99,13 +104,18 @@ async fn main() {
         .map(PathBuf::from)
         .unwrap_or(PathBuf::from("./"));
 
+    let fsync_interval = env::var("ESPORA_FSYNC_INTERVAL")
+        .ok()
+        .and_then(|interval| humantime::parse_duration(&interval).ok())
+        .unwrap_or(Duration::from_millis(10));
+
     #[rustfmt::skip]
     let accounts = HashMap::from_iter([
-        (1, Mutex::new(Account::with_db(db.join("account-1.espora"), 100_000).await.unwrap())),
-        (2, Mutex::new(Account::with_db(db.join("account-2.espora"), 80_000).await.unwrap())),
-        (3, Mutex::new(Account::with_db(db.join("account-3.espora"), 1_000_000).await.unwrap())),
-        (4, Mutex::new(Account::with_db(db.join("account-4.espora"), 10_000_000).await.unwrap())),
-        (5, Mutex::new(Account::with_db(db.join("account-5.espora"), 500_000).await.unwrap())),
+        (1, Mutex::new(Account::with_db(db.join("account-1.espora"), fsync_interval, 100_000).await.unwrap())),
+        (2, Mutex::new(Account::with_db(db.join("account-2.espora"), fsync_interval, 80_000).await.unwrap())),
+        (3, Mutex::new(Account::with_db(db.join("account-3.espora"), fsync_interval, 1_000_000).await.unwrap())),
+        (4, Mutex::new(Account::with_db(db.join("account-4.espora"), fsync_interval, 10_000_000).await.unwrap())),
+        (5, Mutex::new(Account::with_db(db.join("account-5.espora"), fsync_interval, 500_000).await.unwrap())),
     ]);
 
     let app = Router::new()

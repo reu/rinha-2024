@@ -6,6 +6,7 @@ use std::{
     marker::PhantomData,
     os::fd::AsRawFd,
     path::Path,
+    time::{Duration, Instant},
 };
 
 use lock::LockHandle;
@@ -56,7 +57,8 @@ pub struct Db<T, const ROW_SIZE: usize> {
     current_page: Page<ROW_SIZE>,
     reader: File,
     writer: File,
-    pub(crate) sync_write: bool,
+    last_sync: Instant,
+    pub(crate) sync_writes: Option<Duration>,
     data: PhantomData<T>,
 }
 
@@ -86,7 +88,8 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             current_page,
             reader: File::open(&path)?,
             writer: file,
-            sync_write: true,
+            last_sync: Instant::now(),
+            sync_writes: Some(Duration::from_secs(0)),
             data: PhantomData,
         })
     }
@@ -102,8 +105,12 @@ impl<const ROW_SIZE: usize, T: Serialize + DeserializeOwned> Db<T, ROW_SIZE> {
             .concat(),
         )?;
 
-        if self.sync_write {
-            self.writer.sync_data()?;
+        match self.sync_writes {
+            Some(interval) if self.last_sync.elapsed() > interval => {
+                self.writer.sync_data()?;
+                self.last_sync = Instant::now();
+            }
+            _ => {}
         }
 
         if self.current_page.available_rows() == 0 {

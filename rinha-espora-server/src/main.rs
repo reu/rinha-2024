@@ -1,4 +1,6 @@
-use std::{collections::HashMap, env, error::Error, path::Path as FilePath, sync::Arc};
+use std::{
+    collections::HashMap, env, error::Error, path::Path as FilePath, sync::Arc, time::Duration,
+};
 
 use axum::{
     extract::{Path, State},
@@ -25,9 +27,13 @@ struct Account {
 }
 
 impl Account {
-    pub fn with_db(path: impl AsRef<FilePath>, limit: i64) -> Result<Self, Box<dyn Error>> {
+    pub fn with_db(
+        path: impl AsRef<FilePath>,
+        fsync_interval: Duration,
+        limit: i64,
+    ) -> Result<Self, Box<dyn Error>> {
         let mut db = Db::<(i64, Transaction), 128>::builder()
-            .sync_write(option_env!("ESPORA_SYNC_WRITE") == Some("1"))
+            .sync_write_interval(fsync_interval)
             .build(path)?;
 
         let transactions = db
@@ -79,13 +85,18 @@ async fn main() {
         .ok()
         .unwrap_or(String::from("./rinha-espora-server.socket"));
 
+    let fsync_interval = env::var("ESPORA_FSYNC_INTERVAL")
+        .ok()
+        .and_then(|interval| humantime::parse_duration(&interval).ok())
+        .unwrap_or(Duration::from_millis(10));
+
     #[rustfmt::skip]
     let accounts = HashMap::from_iter([
-        (1, RwLock::new(Account::with_db("account-1.espora", 100_000).unwrap())),
-        (2, RwLock::new(Account::with_db("account-2.espora", 80_000).unwrap())),
-        (3, RwLock::new(Account::with_db("account-3.espora", 1_000_000).unwrap())),
-        (4, RwLock::new(Account::with_db("account-4.espora", 10_000_000).unwrap())),
-        (5, RwLock::new(Account::with_db("account-5.espora", 500_000).unwrap())),
+        (1, RwLock::new(Account::with_db("account-1.espora", fsync_interval, 100_000).unwrap())),
+        (2, RwLock::new(Account::with_db("account-2.espora", fsync_interval, 80_000).unwrap())),
+        (3, RwLock::new(Account::with_db("account-3.espora", fsync_interval, 1_000_000).unwrap())),
+        (4, RwLock::new(Account::with_db("account-4.espora", fsync_interval, 10_000_000).unwrap())),
+        (5, RwLock::new(Account::with_db("account-5.espora", fsync_interval, 500_000).unwrap())),
     ]);
 
     let app = Router::new()
