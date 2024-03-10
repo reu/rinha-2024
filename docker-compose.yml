@@ -38,7 +38,7 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: "100MB"
+          memory: "250MB"
     volumes:
       - sockets:/app/unix-sockets
 

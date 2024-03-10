@@ -16,7 +16,7 @@ services:
       resources:
         limits:
           cpus: "0.6"
-          memory: "100MB"
+          memory: "200MB"
 
   api02:
     <<: *api
@@ -39,7 +39,7 @@ services:
       resources:
         limits:
           cpus: "0.3"
-          memory: "100MB"
+          memory: "150MB"
     volumes:
       - sockets:/app/unix-sockets
 
